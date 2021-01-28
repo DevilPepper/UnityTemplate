@@ -14,6 +14,8 @@ This project template follows the tutorials from [GameCI](https://game.ci/docs) 
   - Editor -> Asset Serialization -> Mode: **Force Text** (Should be default)
   - Player -> Resolution and Presentation -> Run In Background: **Checked** (Test step toggles this on for some reason and build step fails if that's a change because the working directory is dirty...)
 
+### Activate License
+
 You also need to activate a Unity license once to use this.
 Go to `Github` > `<Your repository>` > `Actions` > `Acquire activation file (One time per repo)`
 and run this workflow. Once it's done, follow these steps:

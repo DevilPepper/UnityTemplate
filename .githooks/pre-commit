@@ -1,0 +1,9 @@
+#!/bin/bash
+
+. .githooks/hooks.sh
+
+execute_hooks "pre-commit"
+code=$?
+git update-index -g
+
+exit $code
