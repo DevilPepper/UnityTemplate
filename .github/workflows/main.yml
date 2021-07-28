@@ -1,46 +1,97 @@
-name: Test and Build
+# See here for inspiration: https://game.ci/docs/github/getting-started
+name: Build main branch
 
 on:
-  pull_request: {}
   push:
     branches:
-      - master
+      - main
 
 env:
   UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-  UNITY_VERSION: 2020.2.2f1
+  UNITY_VERSION: 2020.3.14f1
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      project_name: ${{ steps.set_vars.outputs.project_name }}
+      version: ${{ steps.build.outputs.buildVersion }}
     steps:
-      # Checkout
+      - id: set_vars
+        run: |
+          project_name=${GITHUB_REPOSITORY##*/}
+          echo "project_name=$project_name" >> $GITHUB_ENV
+          echo "::set-output name=project_name::$project_name"
+
       - name: Checkout repository
         uses: actions/checkout@v2
         with:
           lfs: true
 
-      # Cache
       - uses: actions/cache@v2
         with:
-          path: Library
-          key: Library
+          path: ${{ env.project_name }}/Library
+          key: Library-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-
 
-      # Test
       - name: Run tests
-        uses: game-ci/unity-test-runner@v2.0-alpha-2
+        uses: game-ci/unity-test-runner@v2
         with:
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          projectPath: ${{ env.project_name }}
           unityVersion: ${{ env.UNITY_VERSION }}
-
-      # Build
-      - name: Build project
-        uses: game-ci/unity-builder@v2.0-alpha-6
+      
+      # Upload test artifacts
+      - uses: actions/upload-artifact@v2
+        if: always()
         with:
+          name: Test results
+          path: artifacts
+
+      - name: Build project
+        id: build
+        uses: game-ci/unity-builder@v2
+        with:
+          projectPath: ${{ env.project_name }}
           unityVersion: ${{ env.UNITY_VERSION }}
           targetPlatform: StandaloneWindows
 
-      # Output
-      - uses: actions/upload-artifact@v1
+      # Upload build artifacts
+      - uses: actions/upload-artifact@v2
         with:
           name: Build
           path: build
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Download build artifacts
+      uses: actions/download-artifact@v2
+      with:
+        name: Build
+        path: release
+
+    - name: Zip it
+      env:
+        PROJECT_NAME: ${{ needs.build.outputs.project_name }}
+      run: |
+        mv $PROJECT_NAME/ src/
+        zip $PROJECT_NAME.zip -r . -x '*.git*'
+
+    - name: Create release with binaries
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GIT_TAG: ${{ needs.build.outputs.version }}
+        PROJECT_NAME: ${{ needs.build.outputs.project_name }}
+      run: |
+        gh release create v$GIT_TAG -t "Release v$GIT_TAG" "$PROJECT_NAME.zip"

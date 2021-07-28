@@ -1,4 +1,4 @@
-# Source: https://github.com/game-ci/documentation/blob/main/docs/github/activation.md
+# Source and more details: https://game.ci/docs/github/activation
 name: Acquire activation file (One time per repo)
 on:
   workflow_dispatch:
@@ -9,12 +9,12 @@ jobs:
     steps:
     - name: Request manual activation file
       id: getManualLicenseFile
-      uses: game-ci/unity-request-activation-file@v2.0-alpha-1
+      uses: game-ci/unity-request-activation-file@v2
       with:
-        unityVersion: 2020.2.2f1
+        unityVersion: 2020.3.14f1
 
     - name: Expose as artifact
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v2
       with:
         name: ${{ steps.getManualLicenseFile.outputs.filePath }}
         path: ${{ steps.getManualLicenseFile.outputs.filePath }}

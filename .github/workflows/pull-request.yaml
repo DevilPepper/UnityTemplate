@@ -1,0 +1,52 @@
+name: Pull request checks
+
+on:
+  pull_request: {}
+
+env:
+  UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+  UNITY_VERSION: 2020.3.14f1
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - id: set_vars
+        run: |
+          project_name=${GITHUB_REPOSITORY##*/}
+          echo "project_name=$project_name" >> $GITHUB_ENV
+
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          lfs: true
+      
+      - name: Meta files sanity check
+        env:
+          TARGET: ${{ github.base_ref }}
+          SOURCE: ${{ github.head_ref }}
+        run: scripts/unity-meta-check.sh $TARGET $SOURCE
+
+      - uses: actions/cache@v2
+        with:
+          path: ${{ env.project_name }}/Library
+          key: Library-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-
+
+      - name: Run tests
+        uses: game-ci/unity-test-runner@v2
+        with:
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          projectPath: ${{ env.project_name }}
+          unityVersion: ${{ env.UNITY_VERSION }}
+      
+      - uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: Test results
+          path: artifacts
